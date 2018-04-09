@@ -16,6 +16,6 @@ typedef struct
 
 options_t setupOptions(char *argv[]);
 
-int fileSearch(options_t *options, char *argv[]);
+int fileSearch(options_t *options, char *dirPath);
 
 #endif

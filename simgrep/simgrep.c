@@ -1,7 +1,9 @@
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 
 #include "simgrep.h"
@@ -20,7 +22,11 @@ int main(int argc, char *argv[], char* envp[])
   printf("## start of file search ##\n");
   #endif
 
-  exit(fileSearch(&options, argv[options.pathI]));
+  int ret = fileSearch(&options, argv[options.pathI]);
+
+  while (wait(NULL) > 0);
+
+  exit(ret);
 }
 
 
@@ -79,10 +85,25 @@ int fileSearch(options_t *options, char *dirPath)
       strncmp(file->d_name, "..", 2) && strncmp(file->d_name, ".", 2))
       {
         #ifdef DEBUG
-        printf("found sub-directory \"%s\", starting new process.\n", file->d_name);
+        printf("found sub-directory \"%s\", starting new process.\n", filePath);
         #endif
 
-        //TODO start new process to execute fileSearch
+        // start new process to execute fileSearch
+        pid_t pid;
+        if ((pid = fork()) < 0)
+        {
+          perror(file->d_name);
+          continue;
+        }
+
+        if (pid == 0)
+        {
+          int ret = fileSearch(options, filePath);
+
+          while (wait(NULL) > 0);
+
+          exit(ret);
+        }
       }
     }
     rewinddir(dir);
@@ -105,11 +126,11 @@ int fileSearch(options_t *options, char *dirPath)
       if (S_ISREG(fileInfo.st_mode))
       {
         #ifdef DEBUG
-        printf("found regular file \"%s\", parsing file for pattern\n", file->d_name);
+        printf("found regular file \"%s\", parsing file for pattern\n", filePath);
         #endif
       }
 
-      //TODO process file
+      //TODO go through file
   }
 
   return 0;

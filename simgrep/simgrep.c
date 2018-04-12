@@ -49,6 +49,8 @@ int fileSearch(options_t *options, char *dirPath)
   DIR *dir;
   struct dirent *file;
   struct stat fileInfo;
+  char filePath[257];
+
   if ((dir = opendir(dirPath)) == NULL)
   {
     perror(dirPath);
@@ -62,16 +64,22 @@ int fileSearch(options_t *options, char *dirPath)
     while ((file = readdir(dir)) != NULL)
     {
       // check if is dir and call fileSearch in a new process
-      if (stat(strcat(file->d_name, dirPath), &fileInfo) != 0)
+      if (sprintf(filePath, "%s/%s", dirPath, file->d_name) < 0)
       {
         perror(file->d_name);
         continue;
       }
+      if (stat(filePath, &fileInfo) != 0)
+      {
+        perror(filePath);
+        continue;
+      }
 
-      if (S_ISDIR(fileInfo.st_mode))
+      if (S_ISDIR(fileInfo.st_mode) &&
+      strncmp(file->d_name, "..", 2) && strncmp(file->d_name, ".", 2))
       {
         #ifdef DEBUG
-        printf("found directory \"%s\", starting new process.\n", file->d_name);
+        printf("found sub-directory \"%s\", starting new process.\n", file->d_name);
         #endif
 
         //TODO start new process to execute fileSearch
@@ -83,9 +91,14 @@ int fileSearch(options_t *options, char *dirPath)
   while ((file = readdir(dir)) != NULL)
   {
       // check if is regular file and process it
-      if (stat(strcat(file->d_name, dirPath), &fileInfo) != 0)
+      if (sprintf(filePath, "%s/%s", dirPath, file->d_name) < 0)
       {
         perror(file->d_name);
+        continue;
+      }
+      if (stat(filePath, &fileInfo) != 0)
+      {
+        perror(filePath);
         continue;
       }
 

@@ -16,6 +16,14 @@ typedef struct
 
 options_t setupOptions(char *argv[]);
 
-int fileSearch(options_t *options, char *dirPath);
+int fileSearch(options_t *options, char *dirPath, char *pattern);
+
+void programa(char* pat, char* fich, options_t *options);
+
+void gnoreCase(char linha[256]);
+void showFileOnly(char* f);
+void showLineNum(int c);
+void countLines(int ls);
+void wholeWordOnly(char linha[256], char* p, char* f);
 
 #endif

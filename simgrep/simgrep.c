@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,7 +23,7 @@ int main(int argc, char *argv[], char* envp[])
   printf("## start of file search ##\n");
   #endif
 
-  int ret = fileSearch(&options, argv[options.pathI]);
+  int ret = fileSearch(&options, argv[options.pathI], argv[options.patternI]);
 
   while (wait(NULL) > 0);
 
@@ -50,7 +51,7 @@ options_t setupOptions(char *argv[])
   return options;
 }
 
-int fileSearch(options_t *options, char *dirPath)
+int fileSearch(options_t *options, char *dirPath, char *pattern)
 {
   DIR *dir;
   struct dirent *file;
@@ -98,7 +99,7 @@ int fileSearch(options_t *options, char *dirPath)
 
         if (pid == 0)
         {
-          int ret = fileSearch(options, filePath);
+          int ret = fileSearch(options, filePath, pattern);
 
           while (wait(NULL) > 0);
 
@@ -130,8 +131,99 @@ int fileSearch(options_t *options, char *dirPath)
         #endif
       }
 
-      //TODO go through file
-  }
-
+      programa(pattern, filePath, options);
+  }  
   return 0;
+}
+
+void programa(char* pat, char* fich, options_t *options)
+{
+  char const* const fileName = fich; /* should check that argc > 1 */
+  FILE* file = fopen(fileName, "r"); /* should check the result */
+  char line[256];
+  int count = 0;
+  int countl = 0;
+
+  while (fgets(line, sizeof(line), file))
+  {
+    if(strstr(line, pat) != NULL)
+    {
+      countl++;
+
+      if(options->ignoreCase == 1){
+        gnoreCase(line); // -i
+      }
+      if(options->showFileOnly == 1){
+        showFileOnly(fich);  // -l
+      }
+      if(options->showLineNum == 1){
+        showLineNum(count); // -n
+      }
+      if(options->countLines == 1){
+        countLines(countl); // -c
+      }
+      if(options->wholeWordOnly == 1){
+        wholeWordOnly(line, pat, fich); // -w
+      }
+      //printf("%s", line);
+
+    }
+
+    count++;
+
+  }
+   fclose(file);
+}
+
+void gnoreCase(char linha[256]) // -i
+{
+  printf("%s", linha);
+}
+
+void showLineNum(int c) // -n
+{
+  printf("%d", c);
+}
+
+void showFileOnly(char* f) // -l
+{
+  printf("%s", f);
+}
+
+void countLines(int ls) // -c
+{
+  printf("%d", ls);
+}
+
+void wholeWordOnly(char linha[256], char* p, char* f)
+{
+  char * spaceP = NULL;
+  char * spacePspace = NULL;
+  char * Pspace = NULL;
+
+  asprintf(&spaceP, "%s%s", " ", p);
+  asprintf(&spacePspace, "%s%s%s", " ", p, " ");
+  asprintf(&Pspace, "%s%s", p, " ");
+
+
+
+  // size_t len = strlen(linha);
+  // // char * line2[256];
+  // char * line2 = malloc(len + 1 + 1);
+  // strcpy(line2, linha);
+  // //line2[len] = 'P';
+  // line2[len] = 'P';
+  //line2[len + 1] = '\0';
+  //str_append(str,c)
+  // char p0[256] = &p + " ";
+  // char p1[256] = " " + &p;
+  // char p2[256] = " " + &p + " ";
+
+  // printf("%s", line2);
+
+  // if(strstr(linha, p0) || strstr(linha, p1) || strstr(linha, p2))
+  // {
+  //   printf("%s", linha);
+  // }
+
 }

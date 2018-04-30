@@ -1,15 +1,28 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "protocol.h"
+
 int main(int argc, char *argv[])
 {
-  pid_t pid = getpid();
+  if (argc < 4)
+  {
+    printf("Format: %s <time_out> <num_wanted_seats> <pref_seat_list>", argv[0]);
+  }
+
+  char pid[WIDTH_PID], ansFIFO[WIDTH_PID+3];
+  int numSeats = atoi(argv[1]);
+
+  // Normalize arguments
+  sprintf(pid, "%0*d", WIDTH_PID, getpid());
+  // get each seat, normalize it, and concat it back
 
   // Create client fifo for server feedback
-  char[] ansFIFO = sprintf("ans%d", pid);
+  sprintf(ansFIFO, "ans%s", pid);
   if (mkfifo(ansFIFO, 600) != 0)
   {
     perror(ansFIFO);
@@ -24,8 +37,7 @@ int main(int argc, char *argv[])
     exit(2);
   }
 
-  // TODO Normalize arguments and write on requests fifo
-
+  // TODO write normalized args on requests fifo
 
   exit(0);
 }

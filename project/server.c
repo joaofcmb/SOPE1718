@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
-#define MAX_ROOM_SEATS 9999
+#include "protocol.h"
 
 void *booth(void *open_time)
 {

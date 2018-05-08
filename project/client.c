@@ -11,16 +11,36 @@ int main(int argc, char *argv[])
 {
   if (argc < 4)
   {
-    printf("Format: %s <time_out> <num_wanted_seats> <pref_seat_list>", argv[0]);
+    printf("Format: %s <time_out> <num_wanted_seats> <pref_seat_list>\n", argv[0]);
     exit(-1);
   }
 
-  char pid[WIDTH_PID], ansFIFO[WIDTH_PID+3];
-  int numSeats = atoi(argv[1]);
+  char *token;
+  char ansFIFO[3 + WIDTH_PID + 1];
+  char pid[WIDTH_PID + 1], seats[(WIDTH_SEAT + 1) * MAX_ROOM_SEATS + 1];
+  char serial[WIDTH_PID + WIDTH_SEAT + MAX_ROOM_SEATS * (WIDTH_SEAT + 1) + 3];
 
-  // Normalize arguments
+  // Normalize arguments (PID and seats)
   sprintf(pid, "%0*d", WIDTH_PID, getpid());
-  // TODO get each seat, normalize it, and concat it back
+
+  strcpy(seats, "");
+  token = strtok(argv[3], " ");
+  while(token != NULL)
+  {
+    // normalize each seat
+    char seat[WIDTH_SEAT + 2];
+    sprintf(seat, " %0*d", WIDTH_SEAT, atoi(token));
+    strcat(seats, seat);
+
+    token = strtok(NULL, " ");
+  }
+
+  // serialize request for sending via FIFO (seats has trailing space)
+  sprintf(serial, "%s %d%s", pid, atoi(argv[2]), seats);
+
+  #ifdef DEBUG
+    printf("DEBUG: |%s|\n", serial);
+  #endif
 
   // Create client fifo for server feedback
   sprintf(ansFIFO, "ans%s", pid);

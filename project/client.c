@@ -12,6 +12,7 @@ int main(int argc, char *argv[])
   if (argc < 4)
   {
     printf("Format: %s <time_out> <num_wanted_seats> <pref_seat_list>", argv[0]);
+    exit(-1);
   }
 
   char pid[WIDTH_PID], ansFIFO[WIDTH_PID+3];
@@ -19,7 +20,7 @@ int main(int argc, char *argv[])
 
   // Normalize arguments
   sprintf(pid, "%0*d", WIDTH_PID, getpid());
-  // get each seat, normalize it, and concat it back
+  // TODO get each seat, normalize it, and concat it back
 
   // Create client fifo for server feedback
   sprintf(ansFIFO, "ans%s", pid);
@@ -38,6 +39,12 @@ int main(int argc, char *argv[])
   }
 
   // TODO write normalized args on requests fifo
+
+  // TODO Close connection to server Fifo
+
+  // TODO Wait for Server feedback and act accordingly
+
+  // TODO Destroy Client FIFO
 
   exit(0);
 }

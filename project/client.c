@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 
   char *token;
   char pid[WIDTH_PID + 1], numSeats[WIDTH_SEAT + 1];
-  char seats[(WIDTH_SEAT + 1) * MAX_ROOM_SEATS + 1];
+  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1];
 
   char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST];
 

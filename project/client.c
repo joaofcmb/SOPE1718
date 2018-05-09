@@ -16,12 +16,14 @@ int main(int argc, char *argv[])
   }
 
   char *token;
-  char ansFIFO[3 + WIDTH_PID + 1];
-  char pid[WIDTH_PID + 1], seats[(WIDTH_SEAT + 1) * MAX_ROOM_SEATS + 1];
-  char serial[WIDTH_PID + WIDTH_SEAT + MAX_ROOM_SEATS * (WIDTH_SEAT + 1) + 3];
+  char pid[WIDTH_PID + 1], numSeats[WIDTH_SEAT + 1];
+  char seats[(WIDTH_SEAT + 1) * MAX_ROOM_SEATS + 1];
+
+  char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST];
 
   // Normalize arguments (PID and seats)
   sprintf(pid, "%0*d", WIDTH_PID, getpid());
+  sprintf(numSeats, "%0*d", WIDTH_SEAT, atoi(argv[2]));
 
   strcpy(seats, "");
   token = strtok(argv[3], " ");
@@ -36,7 +38,7 @@ int main(int argc, char *argv[])
   }
 
   // serialize request for sending via FIFO (seats has trailing space)
-  sprintf(serial, "%s %d%s", pid, atoi(argv[2]), seats);
+  sprintf(serial, "%s %s%s", pid, numSeats, seats);
 
   #ifdef DEBUG
     printf("DEBUG: |%s|\n", serial);

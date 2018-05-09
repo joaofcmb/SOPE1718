@@ -7,6 +7,8 @@
 
 #include "protocol.h"
 
+char request[WIDTH_REQUEST];
+
 void *booth(void *open_time)
 {
   return NULL;
@@ -39,6 +41,11 @@ int main(int argc, char* argv[])
       perror(NULL);
       exit(1);
     }
+  }
+
+  while(/*still during open_time*/0)
+  {
+    // TODO read requests from Server FIFO
   }
 
   // TODO Destroy Server Fifo and Booths after the requested time

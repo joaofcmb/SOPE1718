@@ -16,9 +16,10 @@
       followed by the num of seats,
       followed by a sequence of prefered seats
 
-      Ex: 02345 2 0456 0056 0057 0058 0059
+      Ex: 02345 0002 0456 0056 0057 0058 0059
 
           Client with PID 2345 wants 2 seats, from the 5 specified seats
  */
+ #define WIDTH_REQUEST  WIDTH_PID + (MAX_ROOM_SEATS + 1) * (WIDTH_SEAT + 1) + 1
 
 #endif

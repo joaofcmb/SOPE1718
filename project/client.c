@@ -62,24 +62,15 @@ int main(int argc, char *argv[])
   }
   write(requestfd, serial, WIDTH_REQUEST);
 
-  // TODO Close connection to server Fifo
-  int connecfifo = close(requestfd);
-  if (connecfifo < 0)
+  // Close connection to server Fifo
+  if (close(requestfd) < 0)
   {
-    printf("close connection failed\n");
-    exit(2);
+    perror("Client: requests");
+    exit(3);
   }
 
-  // TODO Wait for Server feedback and act accordingly
-  while (/*still during open_time*/1)
-  {
-    int n = read(*ansFIFO, serial, WIDTH_REQUEST);
-
-    if (n == 0)
-    {
-      printf("response received\n");
-    }
-  }
+  // Wait for Server feedback and act accordingly
+  read(*ansFIFO, serial, WIDTH_REQUEST); // read blocks when reading from FIFO
 
   //now write serial in txts
   FILE *f = fopen("clog.txt", O_WRONLY | O_APPEND);
@@ -94,11 +85,11 @@ int main(int argc, char *argv[])
 
   fclose(f);
 
-  // TODO Destroy Client FIFO
-  int destroyfifo = unlink(ansFIFO);
-  if (destroyfifo == 0)
+  // Destroy Client FIFO
+  if (unlink(ansFIFO) < 0)
   {
-    printf("FIFO was successfully destroyed \n");
+    perror(ansFIFO);
+    exit(4);
   }
 
   exit(0);

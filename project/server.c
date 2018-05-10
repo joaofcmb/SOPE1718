@@ -130,11 +130,14 @@ int main(int argc, char* argv[])
   while(/*still during open_time*/1)
   {
     // Read upcomming requests and put in buffer
+    char tmp_request[WIDTH_REQUEST];
+    read (requestfd, tmp_request, WIDTH_REQUEST);
+
     pthread_mutex_lock(&req_mutex);
     while (request != NULL)
       pthread_cond_wait(&empty_req_cond, &req_mutex);
 
-    read(requestfd, request, WIDTH_REQUEST);
+    strcpy(request, tmp_request);
     pthread_cond_signal(&full_req_cond);
     pthread_mutex_unlock(&req_mutex);
   }

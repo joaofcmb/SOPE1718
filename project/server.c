@@ -8,7 +8,7 @@
 
 #include "protocol.h"
 
-// macro function to keep the code for the first detected error
+// macro function to keep the error code of the first detected error
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
 
 char request[WIDTH_REQUEST];
@@ -20,14 +20,10 @@ pthread_cond_t  full_req_cond = PTHREAD_COND_INITIALIZER;
 
 void *booth(void *max_seats)
 {
-  char curr_request[WIDTH_REQUEST]; // holds current request (serialized)
+  char curr_request[WIDTH_REQUEST], *token;
+  char ansFIFO[3 + WIDTH_PID + 1];
 
-  char pid[WIDTH_PID + 1], ansFIFO[3 + WIDTH_PID + 1];
-
-  // contains the list of prefered seats as a string "XXX1 XXX2 ... XXXN"
-  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1];
-  // contains the list of prefered seats as an array of ints
-  int pref_seats[MAX_CLI_SEATS];
+  int pref_seats[MAX_CLI_SEATS]; // contains list of prefered seats
 
   int num_wanted_seats, num_prefered_seats, num_room_seats = *(int *)max_seats;
   int errcode = 0;
@@ -44,10 +40,26 @@ void *booth(void *max_seats)
       pthread_cond_signal(&empty_req_cond);
       pthread_mutex_unlock(&req_mutex);
 
-      // TODO Parse request
+      // Parse request
+      token = strtok(curr_request, " ");  // Client PID
+      sprintf(ansFIFO, "ans%s", token);
+      token = strtok(NULL, " ");          // num_wanted_seats
+      num_wanted_seats = atoi(token);
+
+      for (num_prefered_seats = 0; token != NULL; num_prefered_seats++)
+      {
+        token = strtok(NULL, " ");
+        pref_seats[num_prefered_seats] = atoi(token);
+      }
+
+      #ifdef DEBUG
+        printf("DEBUG Booth Request: %s %d", ansFIFO, num_wanted_seats);
+        for (int i = 0; i < num_prefered_seats; i++)
+          printf(" %d", pref_seats[i]);
+        printf("\n");
+      #endif
 
       // Open Answer FIFO
-      sprintf(ansFIFO, "ans%s", pid);
       int ansfd = open(ansFIFO, O_WRONLY);
       if (ansfd < 0)
       {

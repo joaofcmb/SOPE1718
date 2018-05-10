@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
   sprintf(serial, "%s %s%s", pid, numSeats, seats);
 
   #ifdef DEBUG
-    printf("DEBUG: |%s|\n", serial);
+    printf("DEBUG Client Serial: |%s|\n", serial);
   #endif
 
   // Create client fifo for server feedback

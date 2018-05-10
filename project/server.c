@@ -8,26 +8,64 @@
 
 #include "protocol.h"
 
-// macro function to keep the code for the first detected error
+// macro function to keep the error code of the first detected error
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
 
 char request[WIDTH_REQUEST];
 
+pthread_mutex_t req_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t  empty_req_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t  full_req_cond = PTHREAD_COND_INITIALIZER;
+
 void *booth(void *max_seats)
 {
-  char pid[WIDTH_PID + 1], ansFIFO[3 + WIDTH_PID + 1];
-  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1], pref_seats[MAX_CLI_SEATS];
+  char curr_request[WIDTH_REQUEST], *token;
+  char ansFIFO[3 + WIDTH_PID + 1];
+
+  int pref_seats[MAX_CLI_SEATS]; // contains list of prefered seats
+
   int num_wanted_seats, num_prefered_seats, num_room_seats = *(int *)max_seats;
   int errcode = 0;
 
   while(/*still during open_time*/1)
   {
-      // TODO Get request from buffer
+      // Get request from buffer
+      pthread_mutex_lock(&req_mutex);
+      while (request == NULL)
+        pthread_cond_wait(&full_req_cond, &req_mutex);
+
+      strcpy(curr_request, request);
+      strcpy(request, "");
+      pthread_cond_signal(&empty_req_cond);
+      pthread_mutex_unlock(&req_mutex);
+
+      // Parse request
+      token = strtok(curr_request, " ");  // Client PID
+      sprintf(ansFIFO, "ans%s", token);
+      token = strtok(NULL, " ");          // num_wanted_seats
+      num_wanted_seats = atoi(token);
+
+      for (num_prefered_seats = 0; token != NULL; num_prefered_seats++)
+      {
+        token = strtok(NULL, " ");
+        pref_seats[num_prefered_seats] = atoi(token);
+      }
+
+      #ifdef DEBUG
+        printf("DEBUG Booth Request: %s %d", ansFIFO, num_wanted_seats);
+        for (int i = 0; i < num_prefered_seats; i++)
+          printf(" %d", pref_seats[i]);
+        printf("\n");
+      #endif
 
       // Open Answer FIFO
-      sprintf(ansFIFO, "ans%s", pid);
       int ansfd = open(ansFIFO, O_WRONLY);
-
+      if (ansfd < 0)
+      {
+        perror("ansfd");
+        exit(11);
+      }
 
       // Validate Request
       if (num_wanted_seats < 1)
@@ -44,10 +82,9 @@ void *booth(void *max_seats)
           SET_ERRCODE(errcode, -3);
       }
 
-
       // TODO Execute Request (when request is validated)
 
-      // TODO Send Feedback to Client and destroy client FIFO
+      // TODO Send Feedback to Client and destroy answer FIFO
   }
 
   return NULL;
@@ -82,21 +119,37 @@ int main(int argc, char* argv[])
     }
   }
 
-  while(/*still during open_time*/1)
+  // Open Server FIFO
+  int requestfd = open("requests", O_RDONLY);
+  if (requestfd < 0)
   {
-    // TODO read requests from Server FIFO
+    perror("Server: requests");
+    exit(3);
   }
 
-  // TODO Destroy Server Fifo
+  while(/*still during open_time*/1)
+  {
+    // Read upcomming requests and put in buffer
+    pthread_mutex_lock(&req_mutex);
+    while (request != NULL)
+      pthread_cond_wait(&empty_req_cond, &req_mutex);
+
+    read(requestfd, request, WIDTH_REQUEST);
+    pthread_cond_signal(&full_req_cond);
+    pthread_mutex_unlock(&req_mutex);
+  }
+
+  // TODO Close and destroy Server Fifo
 
   // TODO Signal Threads to exit
 
+  // Wait for threads to terminate
   for (int i = 0; i < numBooths; i++)
   {
     if (pthread_join(booths[i], NULL) != 0)
     {
       perror("Thread Join");
-      exit(3);
+      exit(4);
     }
   }
 

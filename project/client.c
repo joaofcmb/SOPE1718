@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
   sprintf(serial, "%s %s%s", pid, numSeats, seats);
 
   #ifdef DEBUG
-    printf("DEBUG: |%s|\n", serial);
+    printf("DEBUG Client Serial: |%s|\n", serial);
   #endif
 
   // Create client fifo for server feedback
@@ -57,11 +57,10 @@ int main(int argc, char *argv[])
   int requestfd = open("requests", O_WRONLY | O_APPEND);
   if (requestfd < 0)
   {
-    perror("requests");
+    perror("Client: requests");
     exit(2);
   }
-
-  // TODO write normalized args on requests fifo
+  write(requestfd, serial, WIDTH_REQUEST);
 
   // TODO Close connection to server Fifo
   int connecfifo = close(*ansFIFO);

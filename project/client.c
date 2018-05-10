@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
   write(requestfd, serial, WIDTH_REQUEST);
 
   // TODO Close connection to server Fifo
-  int connecfifo = close(*ansFIFO);
+  int connecfifo = close(requestfd);
   if (connecfifo < 0)
   {
     printf("close connection failed");
@@ -71,6 +71,16 @@ int main(int argc, char *argv[])
   }
 
   // TODO Wait for Server feedback and act accordingly
+  while (/*still during open_time*/1)
+  {
+    int n = read(ansFIFO, serial, WIDTH_REQUEST);
+
+    if (n == 0)
+    {
+      printf("response received\n");
+    }
+
+  }
 
   // TODO Destroy Client FIFO
   int destroyfifo = unlink(ansFIFO);

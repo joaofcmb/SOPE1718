@@ -66,21 +66,33 @@ int main(int argc, char *argv[])
   int connecfifo = close(requestfd);
   if (connecfifo < 0)
   {
-    printf("close connection failed");
+    printf("close connection failed\n");
     exit(2);
   }
 
   // TODO Wait for Server feedback and act accordingly
   while (/*still during open_time*/1)
   {
-    int n = read(ansFIFO, serial, WIDTH_REQUEST);
+    int n = read(*ansFIFO, serial, WIDTH_REQUEST);
 
     if (n == 0)
     {
       printf("response received\n");
     }
-
   }
+
+  //now write serial in txts
+  FILE *f = fopen("clog.txt", O_WRONLY | O_APPEND);
+
+  if (f == NULL)
+  {
+    printf("Error opening file!\n");
+    exit(1);
+  }
+
+  fprintf(f, serial); // falta formatar pro txt
+
+  fclose(f);
 
   // TODO Destroy Client FIFO
   int destroyfifo = unlink(ansFIFO);

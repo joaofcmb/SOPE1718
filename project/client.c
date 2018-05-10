@@ -22,17 +22,18 @@ int main(int argc, char *argv[])
   char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST];
 
   // Normalize arguments (PID and seats)
-  sprintf(pid, "%0*d", WIDTH_PID, getpid());
-  sprintf(numSeats, "%0*d", WIDTH_SEAT, atoi(argv[2]));
+  sprintf(pid, "%0*d", WIDTH_PID, getpid()); // guarda o pid
+  sprintf(numSeats, "%0*d", WIDTH_SEAT, atoi(argv[2])); // guarda o numero de lugares
 
-  strcpy(seats, "");
+  strcpy(seats, ""); // garantir q seats ta a 0
+  //retirar o espaço a seats
   token = strtok(argv[3], " ");
   while(token != NULL)
   {
     // normalize each seat
     char seat[WIDTH_SEAT + 2];
     sprintf(seat, " %0*d", WIDTH_SEAT, atoi(token));
-    strcat(seats, seat);
+    strcat(seats, seat); //append each seat sem espaço
 
     token = strtok(NULL, " ");
   }
@@ -63,10 +64,21 @@ int main(int argc, char *argv[])
   // TODO write normalized args on requests fifo
 
   // TODO Close connection to server Fifo
+  int connecfifo = close(*ansFIFO);
+  if (connecfifo < 0)
+  {
+    printf("close connection failed");
+    exit(2);
+  }
 
   // TODO Wait for Server feedback and act accordingly
 
   // TODO Destroy Client FIFO
+  int destroyfifo = unlink(ansFIFO);
+  if (destroyfifo == 0)
+  {
+    printf("FIFO was successfully destroyed \n");
+  }
 
   exit(0);
 }

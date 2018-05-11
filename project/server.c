@@ -11,6 +11,7 @@
 // macro function to keep the error code of the first detected error
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
 
+// Request Buffer Variables
 char request[WIDTH_REQUEST];
 
 pthread_mutex_t req_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -18,10 +19,57 @@ pthread_mutex_t req_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  empty_req_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t  full_req_cond = PTHREAD_COND_INITIALIZER;
 
+// Room Seats Array Variables and Functions (-1 = seat available | PID = seat taken)
+typedef struct
+{
+  int num; // Set in initialize_seats once and keeps that same value (No Sync Needed)
+  int position[MAX_ROOM_SEATS];
+  pthread_mutex_t mutex[MAX_ROOM_SEATS];
+} Seat;
+Seat seats;
+
+int initialize_seats(Seat *seats, int numSeats)
+{
+  if (numSeats > MAX_ROOM_SEATS)  return -1;
+
+  seats->num = numSeats;
+  for (int i = 0; i < numSeats; i++)
+  {
+    seats->position[i] = -1;
+    if (pthread_mutex_init(&(seats->mutex[i]), NULL) != 0)
+      return -1;
+  }
+  return 0;
+}
+
+
+#define DELAY()
+
+int isSeatFree(Seat *seats, int seatNum)
+{
+  pthread_mutex_lock(&(seats->mutex[seatNum]));
+    int value = seats->position[seatNum];
+
+    DELAY();
+  pthread_mutex_unlock(&(seats->mutex[seatNum]));
+
+  if (value == -1)    return 1;
+  return 0;
+}
+
+void bookSeat(Seat *seats, int seatNum, int clientId)
+{
+
+}
+void freeSeat(Seat *seats, int seatNum)
+{
+
+}
+
 void *booth(void *max_seats)
 {
   char curr_request[WIDTH_REQUEST], *token;
-  char ansFIFO[3 + WIDTH_PID + 1];
+  char pid[WIDTH_PID + 1], ansFIFO[3 + WIDTH_PID + 1];
 
   int pref_seats[MAX_CLI_SEATS]; // contains list of prefered seats
 
@@ -42,7 +90,7 @@ void *booth(void *max_seats)
 
       // Parse request
       token = strtok(curr_request, " ");  // Client PID
-      sprintf(ansFIFO, "ans%s", token);
+      strcpy(pid, token);
       token = strtok(NULL, " ");          // num_wanted_seats
       num_wanted_seats = atoi(token);
 
@@ -58,14 +106,6 @@ void *booth(void *max_seats)
           printf(" %d", pref_seats[i]);
         printf("\n");
       #endif
-
-      // Open Answer FIFO
-      int ansfd = open(ansFIFO, O_WRONLY);
-      if (ansfd < 0)
-      {
-        perror("ansfd");
-        exit(11);
-      }
 
       // Validate Request
       if (num_wanted_seats < 1)
@@ -83,6 +123,15 @@ void *booth(void *max_seats)
       }
 
       // TODO Execute Request (when request is validated)
+
+      // Open Answer FIFO
+      sprintf(ansFIFO, "ans%s", pid);
+      int ansfd = open(ansFIFO, O_WRONLY);
+      if (ansfd < 0)
+      {
+        perror("ansfd");
+        exit(11);
+      }
 
       // TODO Send Feedback to Client and destroy answer FIFO
   }
@@ -102,11 +151,16 @@ int main(int argc, char* argv[])
   int numBooths = atoi(argv[2]);
   pthread_t booths[numBooths];
 
-  // Create Server fifo for receiving client requests
-  if (mkfifo("requests", 600) != 0)
+  // Initialize Seats
+  if (initialize_seats(&seats, numSeats) != 0)
   {
-    perror("requests");
-    exit(1);
+    if (numSeats > MAX_ROOM_SEATS)
+    {
+      printf("Number of Room Seats higher than MAX_ROOM_SEATS. Terminating.\n");
+      exit(-2);
+    }
+    perror("Seats Initialization");
+    exit(-3);
   }
 
   // Create booth threads
@@ -117,6 +171,13 @@ int main(int argc, char* argv[])
       perror("Thread Create");
       exit(2);
     }
+  }
+
+  // Create Server fifo for receiving client requests
+  if (mkfifo("requests", 600) != 0)
+  {
+    perror("requests");
+    exit(1);
   }
 
   // Open Server FIFO

@@ -69,8 +69,25 @@ int main(int argc, char *argv[])
     exit(3);
   }
 
-  // Wait for Server feedback and act accordingly
-  read(*ansFIFO, serial, WIDTH_REQUEST); // read blocks when reading from FIFO
+  // Open Client FIFO
+  int ansfd = open(ansFIFO, O_RDONLY);
+  if (ansfd < 0)
+  {
+    perror("ansfd");
+    exit(4);
+  }
+
+  // TODO Wait for Server feedback and act accordingly
+    // Need new protocol for server feedback (check form)
+
+
+  // Close and Destroy Client FIFO
+  close(ansfd);
+  if (unlink(ansFIFO) < 0)
+  {
+    perror(ansFIFO);
+    exit(5);
+  }
 
   //now write serial in txts
   FILE *f = fopen("clog.txt", O_WRONLY | O_APPEND);
@@ -84,13 +101,6 @@ int main(int argc, char *argv[])
   fprintf(f, serial); // falta formatar pro txt
 
   fclose(f);
-
-  // Destroy Client FIFO
-  if (unlink(ansFIFO) < 0)
-  {
-    perror(ansFIFO);
-    exit(4);
-  }
 
   exit(0);
 }

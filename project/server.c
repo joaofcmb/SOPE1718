@@ -5,11 +5,13 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "protocol.h"
 
 // macro function to keep the error code of the first detected error
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
+
 
 // Request Buffer Variables
 char request[WIDTH_REQUEST];
@@ -19,6 +21,8 @@ pthread_mutex_t req_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  empty_req_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t  full_req_cond = PTHREAD_COND_INITIALIZER;
 
+
+
 // Room Seats Array Variables and Functions (-1 = seat available | PID = seat taken)
 typedef struct
 {
@@ -27,6 +31,7 @@ typedef struct
   pthread_mutex_t mutex[MAX_ROOM_SEATS];
 } Seat;
 Seat seats;
+
 
 int initialize_seats(Seat *seats, int numSeats)
 {
@@ -42,8 +47,8 @@ int initialize_seats(Seat *seats, int numSeats)
   return 0;
 }
 
-
 #define DELAY()
+
 
 int isSeatFree(Seat *seats, int seatNum)
 {
@@ -59,12 +64,23 @@ int isSeatFree(Seat *seats, int seatNum)
 
 void bookSeat(Seat *seats, int seatNum, int clientId)
 {
+  pthread_mutex_lock(&(seats->mutex[seatNum]));
+    seats->position[seatNum] = clientId;
 
+    DELAY();
+  pthread_mutex_unlock(&(seats->mutex[seatNum]));
 }
+
 void freeSeat(Seat *seats, int seatNum)
 {
+  pthread_mutex_lock(&(seats->mutex[seatNum]));
+    seats->position[seatNum] = -1;
 
+    DELAY();
+  pthread_mutex_unlock(&(seats->mutex[seatNum]));
 }
+
+
 
 void *booth(void *max_seats)
 {
@@ -133,14 +149,20 @@ void *booth(void *max_seats)
         exit(11);
       }
 
-      // TODO Send Feedback to Client and destroy answer FIFO
+      // TODO Send Feedback to Clien and close answer FIFO
+
+      close(ansfd);
   }
 
   return NULL;
 }
 
+
+
 int main(int argc, char* argv[])
 {
+  time_t initTime = time(NULL);
+
   if (argc < 4)
   {
     printf("Format: %s <num_room_seats> <num_ticket_offices> <open_time>", argv[0]);
@@ -148,7 +170,8 @@ int main(int argc, char* argv[])
   }
 
   int const numSeats = atoi(argv[1]);
-  int numBooths = atoi(argv[2]);
+  int const numBooths = atoi(argv[2]);
+  int const openTime = atoi(argv[3]);
   pthread_t booths[numBooths];
 
   // Initialize Seats
@@ -188,7 +211,7 @@ int main(int argc, char* argv[])
     exit(3);
   }
 
-  while(/*still during open_time*/1)
+  while(difftime(time(NULL), initTime) < openTime)
   {
     // Read upcomming requests and put in buffer
     char tmp_request[WIDTH_REQUEST];
@@ -203,7 +226,13 @@ int main(int argc, char* argv[])
     pthread_mutex_unlock(&req_mutex);
   }
 
-  // TODO Close and destroy Server Fifo
+  // Close and destroy Server Fifo
+  close(requestfd);
+  if (unlink("requests") < 0)
+  {
+    perror("requests");
+    exit(4);
+  }
 
   // TODO Signal Threads to exit
 

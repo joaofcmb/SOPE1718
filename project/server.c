@@ -13,6 +13,26 @@
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
 
 
+// Thread Termination Flag Vars and Functions
+int term_flag = 0;
+pthread_mutex_t term_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void signalTermination()
+{
+  pthread_mutex_lock(&term_mutex);
+  term_flag = 0;
+  pthread_mutex_unlock(&term_mutex);
+}
+
+int isNotOver()
+{
+  pthread_mutex_lock(&term_mutex);
+  int r = term_flag;
+  pthread_mutex_unlock(&term_mutex);
+  return r;
+}
+
+
 // Request Buffer Variables
 char request[WIDTH_REQUEST];
 
@@ -84,15 +104,15 @@ void freeSeat(Seat *seats, int seatNum)
 
 void *booth(void *max_seats)
 {
-  char curr_request[WIDTH_REQUEST], *token;
+  char curr_request[WIDTH_REQUEST], feedback[WIDTH_FEEDBACK], *token;
   char pid[WIDTH_PID + 1], ansFIFO[3 + WIDTH_PID + 1];
 
-  int pref_seats[MAX_CLI_SEATS]; // contains list of prefered seats
+  int pref_seats[MAX_CLI_SEATS], reserved_seats[MAX_CLI_SEATS];
 
   int num_wanted_seats, num_prefered_seats, num_room_seats = *(int *)max_seats;
   int errcode = 0;
 
-  while(/*still during open_time*/1)
+  while(isNotOver())
   {
       // Get request from buffer
       pthread_mutex_lock(&req_mutex);
@@ -138,7 +158,29 @@ void *booth(void *max_seats)
           SET_ERRCODE(errcode, -3);
       }
 
-      // TODO Execute Request (when request is validated)
+      // TODO Execute Request (if request is validated)
+      if (errcode == 0)
+      {
+        int k = 0;
+        for (int i = 0; i < num_prefered_seats; i++)
+        {
+          if (isSeatFree(&seats, pref_seats[i]))
+          {
+            bookSeat(&seats, pref_seats[i], atoi(pid));
+            k++;
+          }
+          if (k == num_wanted_seats)  break;
+        }
+
+        // Check if enough seats were reserved
+        if      (k == 0)                  errcode = -6;
+        else if (k < num_wanted_seats)
+        {
+          errcode = -5;
+          for (int i = 0; i < k; i++)
+            freeSeat(&seats, reserved_seats[i]);
+        }
+      }
 
       // Open Answer FIFO
       sprintf(ansFIFO, "ans%s", pid);
@@ -149,8 +191,29 @@ void *booth(void *max_seats)
         exit(11);
       }
 
-      // TODO Send Feedback to Clien and close answer FIFO
+      // Setup Feedback String for transmitting
+      if (errcode == 0)
+      {
+        sprintf(feedback, "%0*d", WIDTH_SEAT, num_wanted_seats); // guarda o numero de lugares
 
+        for(int i = 0; i < num_wanted_seats; i++)
+        {
+          char seat[WIDTH_SEAT + 2];
+          sprintf(seat, " %0*d", WIDTH_SEAT, reserved_seats[i]);
+          strcat(feedback, seat);
+        }
+      }
+      else
+      {
+        sprintf(feedback, "%d", errcode);
+      }
+
+      #ifdef DEBUG
+        printf("Feedback Debug: |%s|\n", feedback);
+      #endif
+
+      // Send Feedback to Client and close answer FIFO
+      write(ansfd, feedback, WIDTH_FEEDBACK);
       close(ansfd);
   }
 
@@ -234,7 +297,8 @@ int main(int argc, char* argv[])
     exit(4);
   }
 
-  // TODO Signal Threads to exit
+  // Signal Threads to exit
+  signalTermination();
 
   // Wait for threads to terminate
   for (int i = 0; i < numBooths; i++)

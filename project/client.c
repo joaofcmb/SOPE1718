@@ -98,8 +98,11 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  fprintf(f, serial); // falta formatar pro txt
-
+  for(int i = 0; i <= numSeats; i++){
+    sprintf(serial,"%s %02d.%02d%s", pid, i + 1, numSeats, seats[i]);
+    fprintf(f, serial);// falta formatar pro txt
+  }
+  
   fclose(f);
 
   exit(0);

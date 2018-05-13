@@ -316,23 +316,49 @@ int main(int argc, char* argv[])
     if (pthread_join(booths[i], NULL) != 0)
     {
       perror("Thread Join");
-      exit(4);
+      exit(5);
     }
+  }
+
+  // Open book file
+  int bookfd = open ("sbook.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  if (bookfd < 0)
+  {
+    perror("cbook.txt");
+    exit(6);
+  }
+
+  // Insert data (Only thread by now so no need for sync)
+  for (int i = 0; i < numSeats; i++)
+  {
+    if (seats.position[i] > 0)
+    {
+      char seat[WIDTH_SEAT + 2];
+      sprintf(seat, "%0*d\n", WIDTH_SEAT, i);
+      write(bookfd, seat, strlen(seat));
+    }
+  }
+
+  // Close book file
+  if (close(bookfd) < 0)
+  {
+    perror("cbook.txt");
+    exit(7);
   }
 
   // Destroy Synchronization Structures
   pthread_mutex_destroy(&req_mutex);
   pthread_cond_destroy(&full_req_cond);
-  pthread_mutex_destroy(&empty_req_cond);
+  pthread_cond_destroy(&empty_req_cond);
 
   pthread_mutex_destroy(&term_mutex);
 
   for (int i = 0; i < numSeats; i++)
-    pthread_mutex_destroy(&(seats->mutex[i]));
+    pthread_mutex_destroy(&(seats.mutex[i]));
 
   exit(0);
 }
-
+/*
   sprintf(serial,"%02d-%s-%02d: %s -%s\n", booths[i], PID, numSeats, seats, VALIDSEATS); //SUBSTITUIR VALIDSEATS por a variavel
   fprintf(f, serial);
 
@@ -359,3 +385,4 @@ int main(int argc, char* argv[])
 
 
 //booths[i]-pid-numSeats: seats           -lugar atribuido
+*/

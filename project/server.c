@@ -320,6 +320,16 @@ int main(int argc, char* argv[])
     }
   }
 
+  // Destroy Synchronization Structures
+  pthread_mutex_destroy(&req_mutex);
+  pthread_cond_destroy(&full_req_cond);
+  pthread_mutex_destroy(&empty_req_cond);
+
+  pthread_mutex_destroy(&term_mutex);
+
+  for (int i = 0; i < numSeats; i++)
+    pthread_mutex_destroy(&(seats->mutex[i]));
+
   exit(0);
 }
 

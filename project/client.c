@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>
+#include <errno.h>
 
 #include "protocol.h"
 
@@ -17,7 +19,7 @@ int main(int argc, char *argv[])
 
   char *token;
   char pid[WIDTH_PID + 1], numSeats[WIDTH_SEAT + 1];
-  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1];
+  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1], seat[WIDTH_SEAT + 2] = "";
 
   char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST], feedback[WIDTH_FEEDBACK];
 
@@ -25,15 +27,12 @@ int main(int argc, char *argv[])
   sprintf(pid, "%0*d", WIDTH_PID, getpid()); // guarda o pid
   sprintf(numSeats, "%0*d", WIDTH_SEAT, atoi(argv[2])); // guarda o numero de lugares
 
-  strcpy(seats, ""); // garantir q seats ta a 0
-  //retirar o espaço a seats
   token = strtok(argv[3], " ");
   while(token != NULL)
   {
     // normalize each seat
-    char seat[WIDTH_SEAT + 2];
     sprintf(seat, " %0*d", WIDTH_SEAT, atoi(token));
-    strcat(seats, seat); //append each seat sem espaço
+    strcat(seats, seat);
 
     token = strtok(NULL, " ");
   }
@@ -70,16 +69,47 @@ int main(int argc, char *argv[])
   }
 
   // Open Client FIFO
-  int ansfd = open(ansFIFO, O_RDONLY);
-  if (ansfd < 0)
+  int ansfd = open(ansFIFO, O_RDONLY | O_NONBLOCK);
+
+  // Wait for Server feedback and treat data
+  int errcode = 0, num_reserved_seats, reserved_seats[MAX_CLI_SEATS];
+
+  int timeout = atoi(argv[1]), r = -1;
+  time_t initTime = time(NULL);
+
+  while (difftime(time(NULL), initTime) < timeout && r == -1)
+    r = read(ansfd, feedback, WIDTH_FEEDBACK);
+
+  if (r == -1)
   {
-    perror("ansfd");
-    exit(4);
+      if (errno = EAGAIN) // timeout occured
+        errcode = -7;
+      else
+      {
+        perror(ansFIFO);
+        exit(4);
+      }
+  }
+  else
+  {
+    token = strtok(feedback, " ");  // Errorcode / numSeats
+    num_reserved_seats = atoi(token);
+
+    if (num_reserved_seats < 0)
+    {
+      errcode = num_reserved_seats;
+    }
+    else
+    {
+      for (int i = 0; i < num_reserved_seats; i++)
+      {
+        token = strtok(NULL, " ");
+        reserved_seats[i] = atoi(token);
+      }
+    }
   }
 
-  // Wait for Server feedback then close and destroy the fifo
-  read(ansfd, feedback, WIDTH_FEEDBACK);
-
+  // Close and destroy the client fifo
   close(ansfd);
   if (unlink(ansFIFO) < 0)
   {
@@ -87,48 +117,59 @@ int main(int argc, char *argv[])
     exit(5);
   }
 
-  // TODO Write data to files
-  FILE *f = fopen("clog.txt", O_WRONLY | O_APPEND);
 
-  if (f == NULL)
+  // Open data files
+  int logfd = open("clog.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  if (logfd < 0)
   {
-    printf("Error opening file!\n");
-    exit(1);
+    perror("clog.txt");
+    exit(11);
   }
 
-  for(int i = 0; i <= numSeats; i++){
-    sprintf(serial,"%s %02d.%02d%s\n", pid, i + 1, numSeats, seats[i]);
-    fprintf(f, serial);
+  int bookfd = open ("cbook.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  if (bookfd < 0)
+  {
+    perror("cbook.txt");
+    exit(12);
   }
 
 
-  //INSERIR NAS RESPECTIVAS EXCECOES
+  // Insert data
+  char line[WIDTH_PID + WIDTH_XXNN + WIDTH_SEAT + 3], xxnn[WIDTH_XXNN + 1];
 
-  sprintf(serial,"%s MAX\n", pid); //a quantidade de lugares pretendidos é superior ao máximo permitido
-  fprintf(f, serial);
+  if (errcode < 0)
+  {
+    sprintf(line, "%s %s\n", pid, EMSG(errcode));
+    write(logfd, line, strlen(line));
+  }
+  else
+  {
+    for (int i = 0; i < num_reserved_seats; i++)
+    {
+      sprintf(xxnn, "%0*d.%0*d", WIDTH_XXNN / 2, i, WIDTH_XXNN / 2, num_reserved_seats);
+      sprintf(seat, "%0*d", WIDTH_SEAT, reserved_seats[i]);
 
-  sprintf(serial,"%s NST\n", pid); //o número de identificadores dos lugares pretendidos não é válido
-  fprintf(f, serial);
+      sprintf(line, "%s %s %s\n", pid, xxnn, seat);
+      write(logfd, line, strlen(line));
 
-  sprintf(serial,"%s IID\n", pid); //os identificadores dos lugares pretendidos não são válidos
-  fprintf(f, serial);
+      sprintf(line, "%s\n", seat);
+      write(bookfd, line, strlen(line));
+    }
+  }
 
-  sprintf(serial,"%s ERR\n", pid); //outros erros nos parâmetros
-  fprintf(f, serial);
+  // Close data files
+  if (close(logfd) < 0)
+  {
+    perror("clog.txt");
+    exit(13);
+  }
 
-  sprintf(serial,"%s NAV\n", pid); //pelo menos um dos lugares pretendidos não está disponível
-  fprintf(f, serial);
+  if (close(bookfd) < 0)
+  {
+    perror("cbook.txt");
+    exit(14);
+  }
 
-  sprintf(serial,"%s FUL\n", pid); //sala cheia
-  fprintf(f, serial);
-
-  sprintf(serial,"%s OUT\n", pid); //esgotou o tempo
-  fprintf(f, serial);
-
-  //
-
-
-  fclose(f);
 
   exit(0);
 }

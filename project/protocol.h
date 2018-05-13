@@ -19,7 +19,7 @@
 
           Client with PID 2345 wants 2 seats, from the 5 specified seats
  */
- #define WIDTH_REQUEST  WIDTH_PID + (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1) + 1
+#define WIDTH_REQUEST  WIDTH_PID + (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1) + 1
 
 
  /*
@@ -31,6 +31,13 @@
 
           Server reserved 3 seats (Seat 123, Seat 124 and Seat 125)
  */
- #define WIDTH_FEEDBACK (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1)
+#define WIDTH_FEEDBACK (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1)
+
+ /*
+    Error Code Messages:
+      Interface via Macro, stored in array with index = -errcode
+ */
+char* emessages[8] = {"", "MAX", "NST", "IID", "ERR", "NAV", "FUL", "OUT"};
+#define EMSG(errcode) (errcode < 0 && errcode > -8) ? emessages[-errcode] : ""  
 
 #endif

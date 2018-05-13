@@ -312,3 +312,30 @@ int main(int argc, char* argv[])
 
   exit(0);
 }
+
+  sprintf(serial,"%02d-%s-%02d: %s -%s\n", booths[i], PID, numSeats, seats, VALIDSEATS); //SUBSTITUIR VALIDSEATS por a variavel
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -MAX\n", booths[i], PID, numSeats, seats); //a quantidade de lugares pretendidos é superior ao máximo permitido
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -NST\n", booths[i], PID, numSeats, seats); //o número de identificadores dos lugares pretendidos não é válido
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -IID\n", booths[i], PID, numSeats, seats); //os identificadores dos lugares pretendidos não são válidos
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -ERR\n", booths[i], PID, numSeats, seats); //outros erros nos parâmetros
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -NAV\n", booths[i], PID, numSeats, seats); //pelo menos um dos lugares pretendidos não está disponível
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -FUL\n", booths[i], PID, numSeats, seats); //sala cheia
+  fprintf(f, serial);
+
+  sprintf(serial,"%02d-%s-%02d: %s -OUT\n", booths[i], PID, numSeats, seats); //esgotou o tempo
+  fprintf(f, serial);
+
+
+//booths[i]-pid-numSeats: seats           -lugar atribuido

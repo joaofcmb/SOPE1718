@@ -99,9 +99,36 @@ int main(int argc, char *argv[])
   }
 
   for(int i = 0; i <= numSeats; i++){
-    sprintf(serial,"%s %02d.%02d%s", pid, i + 1, numSeats, seats[i]);
-    fprintf(f, serial);// falta formatar pro txt
+    sprintf(serial,"%s %02d.%02d%s\n", pid, i + 1, numSeats, seats[i]);
+    fprintf(f, serial);
   }
+
+
+  //INSERIR NAS RESPECTIVAS EXCECOES
+
+  sprintf(serial,"%s MAX\n", pid); //a quantidade de lugares pretendidos é superior ao máximo permitido
+  fprintf(f, serial);
+
+  sprintf(serial,"%s NST\n", pid); //o número de identificadores dos lugares pretendidos não é válido
+  fprintf(f, serial);
+
+  sprintf(serial,"%s IID\n", pid); //os identificadores dos lugares pretendidos não são válidos
+  fprintf(f, serial);
+
+  sprintf(serial,"%s ERR\n", pid); //outros erros nos parâmetros
+  fprintf(f, serial);
+
+  sprintf(serial,"%s NAV\n", pid); //pelo menos um dos lugares pretendidos não está disponível
+  fprintf(f, serial);
+
+  sprintf(serial,"%s FUL\n", pid); //sala cheia
+  fprintf(f, serial);
+
+  sprintf(serial,"%s OUT\n", pid); //esgotou o tempo
+  fprintf(f, serial);
+
+  //
+
   
   fclose(f);
 

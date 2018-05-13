@@ -43,7 +43,7 @@ pthread_cond_t  full_req_cond = PTHREAD_COND_INITIALIZER;
 
 
 
-// Room Seats Array Variables and Functions (-1 = seat available | PID = seat taken)
+// Room Seats Array Variables and Functions (-1 = seat available | 0 = pre-reserved | PID = seat taken)
 typedef struct
 {
   int num; // Set in initialize_seats once and keeps that same value (No Sync Needed)
@@ -69,19 +69,20 @@ int initialize_seats(Seat *seats, int numSeats)
 
 #define DELAY()
 
-
+// Checks if it is free, if so it gets pre-reserved
 int isSeatFree(Seat *seats, int seatNum)
 {
   pthread_mutex_lock(&(seats->mutex[seatNum]));
     int value = seats->position[seatNum];
+    if (value == -1)  seats->position[seatNum] = 0; // Pre-reserved
 
     DELAY();
   pthread_mutex_unlock(&(seats->mutex[seatNum]));
 
-  if (value == -1)    return 1;
-  return 0;
+  return (value == -1);
 }
 
+// Assigns seat to Client
 void bookSeat(Seat *seats, int seatNum, int clientId)
 {
   pthread_mutex_lock(&(seats->mutex[seatNum]));
@@ -91,6 +92,7 @@ void bookSeat(Seat *seats, int seatNum, int clientId)
   pthread_mutex_unlock(&(seats->mutex[seatNum]));
 }
 
+// Frees Pre-reserved seat
 void freeSeat(Seat *seats, int seatNum)
 {
   pthread_mutex_lock(&(seats->mutex[seatNum]));
@@ -166,19 +168,27 @@ void *booth(void *max_seats)
         {
           if (isSeatFree(&seats, pref_seats[i]))
           {
-            bookSeat(&seats, pref_seats[i], atoi(pid));
+            reserved_seats[k] = pref_seats[i];
             k++;
           }
           if (k == num_wanted_seats)  break;
         }
 
-        // Check if enough seats were reserved
-        if      (k == 0)                  errcode = -6;
+        // Deal with reservations depending on ammount
+        if (k == 0)
+        {
+          errcode = -6;
+        }
         else if (k < num_wanted_seats)
         {
           errcode = -5;
           for (int i = 0; i < k; i++)
             freeSeat(&seats, reserved_seats[i]);
+        }
+        else
+        {
+          for (int i = 0; i < k; i++)
+            bookSeat(&seats, reserved_seats[i], atoi(pid));
         }
       }
 

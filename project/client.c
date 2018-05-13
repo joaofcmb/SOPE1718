@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
   char pid[WIDTH_PID + 1], numSeats[WIDTH_SEAT + 1];
   char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1];
 
-  char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST];
+  char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST], feedback[WIDTH_FEEDBACK];
 
   // Normalize arguments (PID and seats)
   sprintf(pid, "%0*d", WIDTH_PID, getpid()); // guarda o pid
@@ -77,11 +77,9 @@ int main(int argc, char *argv[])
     exit(4);
   }
 
-  // TODO Wait for Server feedback and act accordingly
-    // Need new protocol for server feedback (check form)
+  // Wait for Server feedback then close and destroy the fifo
+  read(ansfd, feedback, WIDTH_FEEDBACK);
 
-
-  // Close and Destroy Client FIFO
   close(ansfd);
   if (unlink(ansFIFO) < 0)
   {
@@ -89,7 +87,7 @@ int main(int argc, char *argv[])
     exit(5);
   }
 
-  //now write serial in txts
+  // TODO Write data to files
   FILE *f = fopen("clog.txt", O_WRONLY | O_APPEND);
 
   if (f == NULL)
@@ -129,7 +127,7 @@ int main(int argc, char *argv[])
 
   //
 
-  
+
   fclose(f);
 
   exit(0);

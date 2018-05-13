@@ -10,8 +10,7 @@
 #define WIDTH_SEAT      4
 
 /*
-    Protocol Format:
-    Client -> Server:
+    Protocol Format - Client -> Server:
       first element is the client PID,
       followed by the num of seats,
       followed by a sequence of prefered seats
@@ -21,5 +20,17 @@
           Client with PID 2345 wants 2 seats, from the 5 specified seats
  */
  #define WIDTH_REQUEST  WIDTH_PID + (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1) + 1
+
+
+ /*
+    Protocol Format - Server -> Client:
+      first element is number of reserved seats (or errorcode in case of error)
+      followed by a sequence of the reserved Seats
+
+      Ex: 0003 0123 0124 0125
+
+          Server reserved 3 seats (Seat 123, Seat 124 and Seat 125)
+ */
+ #define WIDTH_FEEDBACK (MAX_CLI_SEATS + 1) * (WIDTH_SEAT + 1)
 
 #endif

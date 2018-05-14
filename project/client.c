@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
   char *token;
   char pid[WIDTH_PID + 1], numSeats[WIDTH_SEAT + 1];
-  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1], seat[WIDTH_SEAT + 2] = "";
+  char seats[(WIDTH_SEAT + 1) * MAX_CLI_SEATS + 1] = "", seat[WIDTH_SEAT + 2];
 
   char ansFIFO[3 + WIDTH_PID + 1], serial[WIDTH_REQUEST], feedback[WIDTH_FEEDBACK];
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
   // Create client fifo for server feedback
   sprintf(ansFIFO, "ans%s", pid);
-  if (mkfifo(ansFIFO, 600) != 0)
+  if (mkfifo(ansFIFO, 0600) != 0)
   {
     perror(ansFIFO);
     exit(1);
@@ -68,6 +68,10 @@ int main(int argc, char *argv[])
     exit(3);
   }
 
+  #ifdef DEBUG
+    printf("DEBUG: Request sent\n");
+  #endif
+
   // Open Client FIFO
   int ansfd = open(ansFIFO, O_RDONLY | O_NONBLOCK);
 
@@ -77,12 +81,21 @@ int main(int argc, char *argv[])
   int timeout = atoi(argv[1]), r = -1;
   time_t initTime = time(NULL);
 
-  while (difftime(time(NULL), initTime) < timeout && r == -1)
+  while (difftime(time(NULL), initTime) < timeout && r <= 0)
     r = read(ansfd, feedback, WIDTH_FEEDBACK);
 
+  #ifdef DEBUG
+    printf("Received feedback: |%s|\n", feedback);
+  #endif
+
+  if (r == 0)
+  {
+    printf("Nothing read\n");
+    exit(4);
+  }
   if (r == -1)
   {
-      if (errno = EAGAIN) // timeout occured
+      if (errno == EAGAIN) // timeout occured
         errcode = -7;
       else
       {
@@ -109,6 +122,9 @@ int main(int argc, char *argv[])
     }
   }
 
+  #ifdef DEBUG
+  printf("DEBUG: Feedback processed\n");
+  #endif
   // Close and destroy the client fifo
   close(ansfd);
   if (unlink(ansFIFO) < 0)
@@ -119,14 +135,14 @@ int main(int argc, char *argv[])
 
 
   // Open data files
-  int logfd = open("clog.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  int logfd = open("clog.txt", O_WRONLY | O_APPEND | O_CREAT, 0600);
   if (logfd < 0)
   {
     perror("clog.txt");
     exit(11);
   }
 
-  int bookfd = open ("cbook.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  int bookfd = open ("cbook.txt", O_WRONLY | O_APPEND | O_CREAT, 0600);
   if (bookfd < 0)
   {
     perror("cbook.txt");
@@ -144,7 +160,7 @@ int main(int argc, char *argv[])
   }
   else
   {
-    for (int i = 0; i < num_reserved_seats; i++)
+    for (int i = 1; i <= num_reserved_seats; i++)
     {
       sprintf(xxnn, "%0*d.%0*d", WIDTH_XXNN / 2, i, WIDTH_XXNN / 2, num_reserved_seats);
       sprintf(seat, "%0*d", WIDTH_SEAT, reserved_seats[i]);

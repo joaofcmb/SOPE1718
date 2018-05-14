@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include <unistd.h>
 #include <pthread.h>
@@ -11,26 +12,6 @@
 
 // macro function to keep the error code of the first detected error
 #define SET_ERRCODE(errcode, n)   (errcode) = ((errcode) != 0) ? (n) : (errcode)
-
-
-// Thread Termination Flag Vars and Functions
-int term_flag = 0;
-pthread_mutex_t term_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void signalTermination()
-{
-  pthread_mutex_lock(&term_mutex);
-  term_flag = 0;
-  pthread_mutex_unlock(&term_mutex);
-}
-
-int isNotOver()
-{
-  pthread_mutex_lock(&term_mutex);
-  int r = term_flag;
-  pthread_mutex_unlock(&term_mutex);
-  return r;
-}
 
 
 // Request Buffer Variables
@@ -114,17 +95,21 @@ void *booth(void *max_seats)
   int num_wanted_seats, num_prefered_seats, num_room_seats = *(int *)max_seats;
   int errcode = 0;
 
-  while(isNotOver())
+  while (1)
   {
       // Get request from buffer
       pthread_mutex_lock(&req_mutex);
-      while (request == NULL)
+      while (request[0] == '\0')
         pthread_cond_wait(&full_req_cond, &req_mutex);
 
       strcpy(curr_request, request);
-      strcpy(request, "");
+      request[0] = '\0';
       pthread_cond_signal(&empty_req_cond);
       pthread_mutex_unlock(&req_mutex);
+
+      #ifdef DEBUG
+        printf("Thread Got Request: %s\n", curr_request);
+      #endif
 
       // Parse request
       token = strtok(curr_request, " ");  // Client PID
@@ -132,17 +117,25 @@ void *booth(void *max_seats)
       token = strtok(NULL, " ");          // num_wanted_seats
       num_wanted_seats = atoi(token);
 
+      if (atoi(pid) == -1)    return NULL; // Flag for termination
+
+      #ifdef DEBUG
+        printf("PID: %s N: %d\n", pid, num_wanted_seats);
+      #endif
+
+      token = strtok(NULL, " ");
       for (num_prefered_seats = 0; token != NULL; num_prefered_seats++)
       {
-        token = strtok(NULL, " ");
         pref_seats[num_prefered_seats] = atoi(token);
+        token = strtok(NULL, " ");
+
+        #ifdef DEBUG
+          printf("Seat[%d]: %d\n", num_prefered_seats, pref_seats[num_prefered_seats]);
+        #endif
       }
 
       #ifdef DEBUG
-        printf("DEBUG Booth Request: %s %d", ansFIFO, num_wanted_seats);
-        for (int i = 0; i < num_prefered_seats; i++)
-          printf(" %d", pref_seats[i]);
-        printf("\n");
+        printf("NP: %d\n", num_prefered_seats);
       #endif
 
       // Validate Request
@@ -225,9 +218,7 @@ void *booth(void *max_seats)
       // Send Feedback to Client and close answer FIFO
       write(ansfd, feedback, WIDTH_FEEDBACK);
       close(ansfd);
-  }
-
-  return NULL;
+    }
 }
 
 
@@ -267,31 +258,39 @@ int main(int argc, char* argv[])
       perror("Thread Create");
       exit(2);
     }
+    #ifdef DEBUG
+      printf("Created Booth\n");
+    #endif
   }
 
   // Create Server fifo for receiving client requests
-  if (mkfifo("requests", 600) != 0)
+  if (mkfifo("requests", 0600) != 0)
   {
     perror("requests");
     exit(1);
   }
 
   // Open Server FIFO
-  int requestfd = open("requests", O_RDONLY);
+  int requestfd = open("requests", O_RDONLY | O_NONBLOCK);
   if (requestfd < 0)
   {
     perror("Server: requests");
     exit(3);
   }
 
+  // Read upcomming requests and put in buffer
+  request[0] = '\0';
+
   while(difftime(time(NULL), initTime) < openTime)
   {
-    // Read upcomming requests and put in buffer
     char tmp_request[WIDTH_REQUEST];
-    read (requestfd, tmp_request, WIDTH_REQUEST);
+    int r = 0;
+    r = read(requestfd, tmp_request, WIDTH_REQUEST);
+
+    if (r <= 0)   continue;
 
     pthread_mutex_lock(&req_mutex);
-    while (request != NULL)
+    while (request[0] != '\0')
       pthread_cond_wait(&empty_req_cond, &req_mutex);
 
     strcpy(request, tmp_request);
@@ -307,8 +306,20 @@ int main(int argc, char* argv[])
     exit(4);
   }
 
+  #ifdef DEBUG
+    printf("Starting Thread termination %d\n", numBooths);
+  #endif
+
   // Signal Threads to exit
-  signalTermination();
+  char term[WIDTH_PID + WIDTH_SEAT + 2];
+  sprintf(term, "%0*d %0*d", WIDTH_PID, -1, WIDTH_SEAT, 0);
+  pthread_mutex_lock(&req_mutex);
+  while (request[0] != '\0')
+    pthread_cond_wait(&empty_req_cond, &req_mutex);
+
+  strcpy(request, term);
+  pthread_cond_signal(&full_req_cond);
+  pthread_mutex_unlock(&req_mutex);
 
   // Wait for threads to terminate
   for (int i = 0; i < numBooths; i++)
@@ -320,8 +331,13 @@ int main(int argc, char* argv[])
     }
   }
 
+  #ifdef DEBUG
+    printf("Writing to files \n");
+  #endif
+
+
   // Open book file
-  int bookfd = open ("sbook.txt", O_WRONLY | O_APPEND | O_CREAT, 600);
+  int bookfd = open ("sbook.txt", O_WRONLY | O_CREAT, 0600);
   if (bookfd < 0)
   {
     perror("cbook.txt");
@@ -346,12 +362,14 @@ int main(int argc, char* argv[])
     exit(7);
   }
 
+  #ifdef DEBUG
+    printf("Destroying structures\n");
+  #endif
+
   // Destroy Synchronization Structures
   pthread_mutex_destroy(&req_mutex);
   pthread_cond_destroy(&full_req_cond);
   pthread_cond_destroy(&empty_req_cond);
-
-  pthread_mutex_destroy(&term_mutex);
 
   for (int i = 0; i < numSeats; i++)
     pthread_mutex_destroy(&(seats.mutex[i]));

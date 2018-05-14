@@ -160,9 +160,9 @@ int main(int argc, char *argv[])
   }
   else
   {
-    for (int i = 1; i <= num_reserved_seats; i++)
+    for (int i = 0; i < num_reserved_seats; i++)
     {
-      sprintf(xxnn, "%0*d.%0*d", WIDTH_XXNN / 2, i, WIDTH_XXNN / 2, num_reserved_seats);
+      sprintf(xxnn, "%0*d.%0*d", WIDTH_XXNN / 2, i+1, WIDTH_XXNN / 2, num_reserved_seats);
       sprintf(seat, "%0*d", WIDTH_SEAT, reserved_seats[i]);
 
       sprintf(line, "%s %s %s\n", pid, xxnn, seat);

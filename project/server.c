@@ -33,6 +33,17 @@ typedef struct
 } Seat;
 Seat seats;
 
+int takenSeats;
+
+pthread_mutex_t taken_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int getTakenSeats()
+{
+  pthread_mutex_lock(&taken_mutex);
+  int r = takenSeats;
+  pthread_mutex_unlock(&taken_mutex);
+  return r;
+}
 
 int initialize_seats(Seat *seats, int numSeats)
 {
@@ -45,6 +56,11 @@ int initialize_seats(Seat *seats, int numSeats)
     if (pthread_mutex_init(&(seats->mutex[i]), NULL) != 0)
       return -1;
   }
+
+  pthread_mutex_lock(&taken_mutex);
+  takenSeats = 0;
+  pthread_mutex_unlock(&taken_mutex);
+
   return 0;
 }
 
@@ -59,6 +75,10 @@ int isSeatFree(Seat *seats, int seatNum)
 
     DELAY();
   pthread_mutex_unlock(&(seats->mutex[seatNum]));
+
+  pthread_mutex_lock(&taken_mutex);
+  takenSeats++;
+  pthread_mutex_unlock(&taken_mutex);
 
   return (value == -1);
 }
@@ -81,6 +101,10 @@ void freeSeat(Seat *seats, int seatNum)
 
     DELAY();
   pthread_mutex_unlock(&(seats->mutex[seatNum]));
+
+  pthread_mutex_lock(&taken_mutex);
+  takenSeats--;
+  pthread_mutex_unlock(&taken_mutex);
 }
 
 
@@ -153,6 +177,9 @@ void *booth(void *max_seats)
           SET_ERRCODE(errcode, -3);
       }
 
+      if (getTakenSeats() >= MAX_ROOM_SEATS)
+          SET_ERRCODE(errcode, -6);
+
       // TODO Execute Request (if request is validated)
       if (errcode == 0)
       {
@@ -168,11 +195,7 @@ void *booth(void *max_seats)
         }
 
         // Deal with reservations depending on ammount
-        if (k == 0)
-        {
-          errcode = -6;
-        }
-        else if (k < num_wanted_seats)
+        if (k < num_wanted_seats)
         {
           errcode = -5;
           for (int i = 0; i < k; i++)
@@ -313,13 +336,17 @@ int main(int argc, char* argv[])
   // Signal Threads to exit
   char term[WIDTH_PID + WIDTH_SEAT + 2];
   sprintf(term, "%0*d %0*d", WIDTH_PID, -1, WIDTH_SEAT, 0);
-  pthread_mutex_lock(&req_mutex);
-  while (request[0] != '\0')
-    pthread_cond_wait(&empty_req_cond, &req_mutex);
 
-  strcpy(request, term);
-  pthread_cond_signal(&full_req_cond);
-  pthread_mutex_unlock(&req_mutex);
+  for (int i = 0; i < numBooths; i++)
+  {
+    pthread_mutex_lock(&req_mutex);
+    while (request[0] != '\0')
+      pthread_cond_wait(&empty_req_cond, &req_mutex);
+
+    strcpy(request, term);
+    pthread_cond_signal(&full_req_cond);
+    pthread_mutex_unlock(&req_mutex);
+  }
 
   // Wait for threads to terminate
   for (int i = 0; i < numBooths; i++)
